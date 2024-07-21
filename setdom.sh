@@ -180,19 +180,6 @@ manage_ssl() {
     local action="$1"
     local domain="$2"
     local email="$3"
-    if [check_domain "$domain" == 1]; then
-        [ "$action" == "add" ] && certbot --apache -d "$domain" -d "www.$domain" --email "$email" --agree-tos -n
-        [ "$action" == "renew" ] && certbot renew --cert-name "$domain"
-    elif [check_domain "$domain" == 2]; then
-        [ "$action" == "add" ] && certbot --apache -d "$domain" --email "$email" --agree-tos -n
-        [ "$action" == "renew" ] && certbot renew --cert-name "$domain"
-    fi
-}
-
-manage_ssl() {
-    local action="$1"
-    local domain="$2"
-    local email="$3"
     local domain_status="$4"
 
     if [ "$domain_status" -eq 0 ]; then
@@ -213,12 +200,13 @@ status=$?
 [ "$status" -eq 1 ] && manage_ssl "add" "$newdomain" "$email" "$domain_status"
 [ "$status" -eq 2 ] && manage_ssl "add" "$newdomain" "$email" "$domain_status"
 
+service httpd graceful
+sleep 5
+
 cleaned_newdomain=$(echo "$newdomain" | tr -d '\r')
 echo "$cleaned_newdomain,$dbuser,$dbname,$dbpass" >> "$processed_file"
 dondom=${newdtdom//_setup/_done}
 curl -X POST -d "data=$dondom" "$sv71/dom.php"
 sed -i "s/$newdtdom/$dondom/g" "$home_dt/domains.txt"
-service httpd graceful
-sleep 5
 rm -rf "$rundir/active/$newdomain.txt"
 # sed -i "/$newdomain/d" "$rundir/rundom.txt"
