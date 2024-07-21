@@ -16,28 +16,68 @@ status="${ndtdom[5]}"
 elog="$home_lg/$newdomain"_"error.log"
 clog="$home_lg/$newdomain"_"access.log combined"
 
-is_root_domain() {
+[ ! -f /rs/public_suffix_list.dat ] && curl -s https://publicsuffix.org/list/public_suffix_list.dat -o /rs/public_suffix_list.dat
+
+check_domain() {
     local domain="$1"
-    local tld=$(grep -E '^[^//]' /rs/public_suffix_list.dat | grep -F ".$(echo "$domain" | rev | cut -d. -f1-2 | rev)" || true)
-    [ -z "$tld" ] && [ "$(echo "$domain" | awk -F'.' '{print NF}')" -eq 2 ] || [ "$(echo "$domain" | awk -F".$tld" '{print NF-1}')" -eq 1 ]
-    return $?
+    local suffix_file="/rs/public_suffix_list.dat"
+    local domain_parts
+    local tld=""
+    local root_domain
+
+    IFS='.' read -r -a domain_parts <<< "$domain"
+
+    # Iterasi dari belakang untuk membentuk TLD dan memeriksa validitas
+    for ((i=${#domain_parts[@]}-1; i>0; i--)); do
+        tld="${domain_parts[i]}${tld:+.$tld}"
+        if grep -q -E "^$tld$" "$suffix_file"; then
+            root_domain="${domain%.$tld}"
+            if [ "$(echo "$root_domain" | awk -F'.' '{print NF}')" -eq 1 ]; then
+                # echo "$domain is valid & a root domain."
+                return 0
+            else
+                # echo "$domain is valid & a subdomain."
+                return 1
+            fi
+        fi
+    done
+
+    # echo "Invalid domain extension."
+    return 2
 }
 
 generate_vhost() {
-    local home_dir="$1" newdomain="$2" elog="$3" clog="$4"
-    cat <<EOL
-<VirtualHost *:80>
-    DocumentRoot $home_dir/$newdomain
-    ServerName $newdomain
-    $(is_root_domain "$newdomain" || echo "ServerAlias www.$newdomain")
-    RewriteEngine on
-    ErrorLog $elog
-    CustomLog $clog
-</VirtualHost>
-EOL
+    local home_dir="$1"
+    local domain="$2"
+    local elog="$3"
+    local clog="$4"
+    local is_root=$5
+    local vhost
+
+    vhost="<VirtualHost *:80>\n"
+    vhost+="    DocumentRoot $home_dir/$domain\n"
+    vhost+="    ServerName $domain\n"
+
+    if [ "$is_root" -eq 0 ]; then
+        vhost+="    ServerAlias www.$domain\n"
+    fi
+
+    vhost+="    RewriteEngine on\n"
+    vhost+="    ErrorLog $elog\n"
+    vhost+="    CustomLog $clog\n"
+    vhost+="</VirtualHost>"
+
+    echo -e "$vhost" 
 }
 
-generate_vhost "$home_dir" "$newdomain" "$elog" "$clog"
+check_domain "$newdomain"
+domain_status=$?
+
+if [ "$domain_status" -eq 0 ] || [ "$domain_status" -eq 1 ]; then
+    generate_vhost "$home_dir" "$newdomain" "$elog" "$clog" $domain_status >> "$sites_conf"
+else
+	echo "=> invalid domain"
+fi
 
 mkdir "$home_dir/$newdomain"
 
@@ -122,11 +162,11 @@ chown -R apache:apache "$home_dir/$newdomain"
 # chmod -R 755 "$home_dir/$newdomain"
 chcon -R system_u:object_r:httpd_sys_content_t "$home_dir/$newdomain"
 chcon -R -u system_u -r object_r -t httpd_sys_rw_content_t "$home_dir/$newdomain"
+service httpd graceful
+
+sleep 5
 
 # SSL
-
-[ ! -f /rs/public_suffix_list.dat ] && curl -s https://publicsuffix.org/list/public_suffix_list.dat -o /rs/public_suffix_list.dat
-
 check_certificate() {
     local domain="$1"
     certbot certificates | grep -qE "Domains:.*\b$domain\b" && {
@@ -140,21 +180,38 @@ manage_ssl() {
     local action="$1"
     local domain="$2"
     local email="$3"
-    if is_root_domain "$domain"; then
+    if [check_domain "$domain" == 1]; then
         [ "$action" == "add" ] && certbot --apache -d "$domain" -d "www.$domain" --email "$email" --agree-tos -n
         [ "$action" == "renew" ] && certbot renew --cert-name "$domain"
-    else
+    elif [check_domain "$domain" == 2]; then
         [ "$action" == "add" ] && certbot --apache -d "$domain" --email "$email" --agree-tos -n
         [ "$action" == "renew" ] && certbot renew --cert-name "$domain"
+    fi
+}
+
+manage_ssl() {
+    local action="$1"
+    local domain="$2"
+    local email="$3"
+    local domain_status="$4"
+
+    if [ "$domain_status" -eq 0 ]; then
+		[ "$action" == "add" ] && certbot --apache -d "$domain" -d "www.$domain" --email "$email" --agree-tos -n
+        [ "$action" == "renew" ] && certbot renew --cert-name "$domain"
+    elif [ "$domain_status" -eq 1 ]; then
+		[ "$action" == "add" ] && certbot --apache -d "$domain" --email "$email" --agree-tos -n
+        [ "$action" == "renew" ] && certbot renew --cert-name "$domain"
+    else
+        echo "=> Invalid domain status."
     fi
 }
 
 check_certificate "$newdomain"
 status=$?
 
-[ "$status" -eq 0 ] && manage_ssl "renew" "$newdomain" "$email"
-[ "$status" -eq 1 ] && manage_ssl "add" "$newdomain" "$email"
-[ "$status" -eq 2 ] && manage_ssl "add" "$newdomain" "$email"
+[ "$status" -eq 0 ] && manage_ssl "renew" "$newdomain" "$email" "$domain_status"
+[ "$status" -eq 1 ] && manage_ssl "add" "$newdomain" "$email" "$domain_status"
+[ "$status" -eq 2 ] && manage_ssl "add" "$newdomain" "$email" "$domain_status"
 
 cleaned_newdomain=$(echo "$newdomain" | tr -d '\r')
 echo "$cleaned_newdomain,$dbuser,$dbname,$dbpass" >> "$processed_file"
@@ -162,6 +219,6 @@ dondom=${newdtdom//_setup/_done}
 curl -X POST -d "data=$dondom" "$sv71/dom.php"
 sed -i "s/$newdtdom/$dondom/g" "$home_dt/domains.txt"
 service httpd graceful
-
+sleep 5
 rm -rf "$rundir/active/$newdomain.txt"
 # sed -i "/$newdomain/d" "$rundir/rundom.txt"
