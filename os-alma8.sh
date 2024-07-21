@@ -70,10 +70,10 @@ dnf install expect htop screen dos2unix wget nano zip unzip git -y
 # =========
 diridx="DirectoryIndex index.html"
 dnf install httpd -y
+sed -i '154s/AllowOverride None/AllowOverride All/' /etc/httpd/conf/httpd.conf
 sed -i "s/$diridx/$diridx index.php/g" /etc/httpd/conf/httpd.conf
 sed -i "s|DocumentRoot \"/var/www/html\"|DocumentRoot \"$dpub\/w\"|" /etc/httpd/conf/httpd.conf
 sed -i "s|<Directory \"/var/www/html\"|<Directory \"$dpub\/w\"|" /etc/httpd/conf/httpd.conf
-sed -i '155s/AllowOverride None/AllowOverride All/' /etc/httpd/conf/httpd.conf
 sed -i "97i ServerName localhost" /etc/httpd/conf/httpd.conf
 cat <<EOF | sudo tee -a /etc/httpd/conf/httpd.conf >/dev/null
 ServerTokens Prod
@@ -179,7 +179,8 @@ sed -i 's/upload_max_filesize = 2M/upload_max_filesize = 300M/g' /etc/php.ini
 sed -i 's/post_max_size = 8M/post_max_size = 300M/g' /etc/php.ini
 sed -i 's/memory_limit = 128M/memory_limit = 256M/g' /etc/php.ini
 sed -i 's/expose_php = On/expose_php = Off/g' /etc/php.ini
-
+sed -i 's/listen = /run/php-fpm/www.sock/;listen = /run/php-fpm/www.sock/g' /etc/php-fpm.d/www.conf
+sed -i '39ilisten = 127.0.0.1:9000' /etc/php-fpm.d/www.conf
 
 
 # IMAGICK
@@ -296,7 +297,7 @@ EOF
   if [[ ! -f "$ds/processed_domains.txt" ]]; then
     >"$ds/processed_domains.txt"
   fi
-  script_path="/bin/bash $ds/vh.sh"
+  script_vh="/bin/bash $ds/vh.sh"
   service_mysts="/etc/systemd/system/mysts.service"
 
   cat <<EOF >"$service_mysts"
@@ -305,7 +306,7 @@ Description=mysts
 After=network.target
 
 [Service]
-ExecStart=$script_path
+ExecStart=$script_vh
 Type=simple
 Restart=always
 StandardOutput=null
@@ -342,7 +343,7 @@ else
   sed -i "4i home_dir=\"$dpub/w\"" "$ssl_sh"
   chmod +x "$ssl_sh"
 
-  script_path="/bin/bash $ds/ssl.sh"
+  script_ssl="/bin/bash $ds/ssl.sh"
   service_myssl="/etc/systemd/system/myssl.service"
 
   cat <<EOF >"$service_myssl"
@@ -351,7 +352,7 @@ Description=myssl
 After=network.target
 
 [Service]
-ExecStart=$script_path
+ExecStart=$script_ssl
 Type=simple
 Restart=always
 StandardOutput=null
@@ -463,7 +464,7 @@ firewall-cmd --reload
 dnf install policycoreutils -y
 dnf whatprovides semanage
 dnf provides *bin/semanage
-dnf -y install policycoreutils-python
+dnf install policycoreutils-python-utils -y
 semanage port -a -t ssh_port_t -p tcp "$aport"
 systemctl restart sshd
 systemctl restart firewalld
