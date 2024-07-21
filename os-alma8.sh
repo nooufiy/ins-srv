@@ -4,9 +4,9 @@ start_time=$(date +%s)
 
 echo "-"
 echo "-"
-echo "============================"
+echo "============================="
 echo "Alma 8 LAMP & DB Installation"
-echo "============================"
+echo "============================="
 echo "-"
 echo "-"
 
@@ -37,7 +37,7 @@ mkdir -p "$ds/r"
 # =========
 yusr=$(cat /root/u.txt)
 trimmed=$(echo "$yusr" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/"//g')
-IFS="_" read -r ip user userid status url rurl phpv <<<"$trimmed"
+IFS="_" read -r ip user userid status url rurl phpv oslinux webserver <<<"$trimmed"
 
 
 # USER LNX
