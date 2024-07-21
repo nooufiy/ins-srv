@@ -5,7 +5,7 @@ start_time=$(date +%s)
 echo "-"
 echo "-"
 echo "============================"
-echo "LAMP & DB Begin Installation"
+echo "Alma 8 LAMP & DB Installation"
 echo "============================"
 echo "-"
 echo "-"
