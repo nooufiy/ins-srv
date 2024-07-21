@@ -153,13 +153,13 @@ install_php() {
     dnf install https://rpms.remirepo.net/enterprise/remi-release-8.rpm -y
     dnf -y module reset php
 
-    if [[ "$phpv" == "php74" ]]; then
+    if [[ "$phpv" == "7.4" ]]; then
         dnf -y module enable php:remi-7.4
-    elif [[ "$phpv" == "php81" ]]; then
+    elif [[ "$phpv" == "8.1" ]]; then
         dnf -y module enable php:remi-8.1
-    elif [[ "$phpv" == "php82" ]]; then
+    elif [[ "$phpv" == "8.2" ]]; then
         dnf -y module enable php:remi-8.2
-    elif [[ "$phpv" == "php83" ]]; then
+    elif [[ "$phpv" == "8.3" ]]; then
         dnf -y module enable php:remi-8.3
     else
         echo "Versi PHP tidak valid. Gunakan 7.4, 8.1, 8.2, 8.3."
