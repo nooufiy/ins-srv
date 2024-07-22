@@ -162,7 +162,8 @@ chown -R apache:apache "$home_dir/$newdomain"
 # chmod -R 755 "$home_dir/$newdomain"
 chcon -R system_u:object_r:httpd_sys_content_t "$home_dir/$newdomain"
 chcon -R -u system_u -r object_r -t httpd_sys_rw_content_t "$home_dir/$newdomain"
-service httpd graceful
+# service httpd graceful
+service httpd reload
 
 sleep 5
 
@@ -200,13 +201,16 @@ status=$?
 [ "$status" -eq 1 ] && manage_ssl "add" "$newdomain" "$email" "$domain_status"
 [ "$status" -eq 2 ] && manage_ssl "add" "$newdomain" "$email" "$domain_status"
 
-service httpd graceful
-sleep 5
+# service httpd graceful
+service httpd reload
 
 cleaned_newdomain=$(echo "$newdomain" | tr -d '\r')
 echo "$cleaned_newdomain,$dbuser,$dbname,$dbpass" >> "$processed_file"
 dondom=${newdtdom//_setup/_done}
 curl -X POST -d "data=$dondom" "$sv71/dom.php"
 sed -i "s/$newdtdom/$dondom/g" "$home_dt/domains.txt"
+
+sleep 5
 rm -rf "$rundir/active/$newdomain.txt"
 # sed -i "/$newdomain/d" "$rundir/rundom.txt"
+echo ""
