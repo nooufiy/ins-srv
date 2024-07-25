@@ -74,7 +74,7 @@ check_domain "$newdomain"
 domain_status=$?
 
 if [ "$domain_status" -eq 0 ] || [ "$domain_status" -eq 1 ]; then
-    generate_vhost "$home_dir" "$newdomain" "$elog" "$clog" $domain_status >> "$sites_conf"
+    generate_vhost "$home_dir" "$newdomain" "$elog" "$clog" $domain_status >> "$sites_conf_dir/$newdomain.conf"
 else
 	echo "=> invalid domain"
 fi
@@ -164,53 +164,39 @@ chcon -R system_u:object_r:httpd_sys_content_t "$home_dir/$newdomain"
 chcon -R -u system_u -r object_r -t httpd_sys_rw_content_t "$home_dir/$newdomain"
 # service httpd graceful
 service httpd reload
-
 sleep 5
 
 # SSL
-check_certificate() {
-    local domain="$1"
-    certbot certificates | grep -qE "Domains:.*\b$domain\b" && {
-        certbot certificates | grep -A 1 -E "Domains:.*\b$domain\b" | grep -q "VALID" && return 0
-        return 1
-    }
-    return 2
-}
+# if [ ! -f "$sites_conf_dir/$newdomain-le-ssl.conf" ]; then
+	# if [ "$domain_status" -eq 0 ]; then
+		# certbot --apache -d "$newdomain" -d "www.$newdomain" --email "$email" --agree-tos -n
+	# elif [ "$domain_status" -eq 1 ]; then
+		# certbot --apache -d "$newdomain" --email "$email" --agree-tos -n
+	# else
+		# echo "invalid"
+	# fi
+# else
+	# echo "exists ssl"
+# fi
 
-manage_ssl() {
-    local action="$1"
-    local domain="$2"
-    local email="$3"
-    local domain_status="$4"
-
-    if [ "$domain_status" -eq 0 ]; then
-		[ "$action" == "add" ] && certbot --apache -d "$domain" -d "www.$domain" --email "$email" --agree-tos -n
-        [ "$action" == "renew" ] && certbot renew --cert-name "$domain"
-    elif [ "$domain_status" -eq 1 ]; then
-		[ "$action" == "add" ] && certbot --apache -d "$domain" --email "$email" --agree-tos -n
-        [ "$action" == "renew" ] && certbot renew --cert-name "$domain"
-    else
-        echo "=> Invalid domain status."
-    fi
-}
-
-check_certificate "$newdomain"
-status=$?
-
-[ "$status" -eq 0 ] && manage_ssl "renew" "$newdomain" "$email" "$domain_status"
-[ "$status" -eq 1 ] && manage_ssl "add" "$newdomain" "$email" "$domain_status"
-[ "$status" -eq 2 ] && manage_ssl "add" "$newdomain" "$email" "$domain_status"
+# if [ ! -f "$sites_conf_dir/$newdomain-le-ssl.conf" ]; then
+    # [ "$domain_status" -eq 0 ] && certbot --apache -d "$domain" -d "www.$domain" --email "$email" --agree-tos -n
+    # [ "$domain_status" -eq 1 ] && certbot --apache -d "$domain" --email "$email" --agree-tos -n
+    # [ "$domain_status" -ne 0 ] && [ "$domain_status" -ne 1 ] && echo "Invalid domain."
+# else
+    # echo "SSL exists for $newdomain."
+# fi
 
 # service httpd graceful
-service httpd reload
+# service httpd reload
 
-cleaned_newdomain=$(echo "$newdomain" | tr -d '\r')
-echo "$cleaned_newdomain,$dbuser,$dbname,$dbpass" >> "$processed_file"
-dondom=${newdtdom//_setup/_done}
-curl -X POST -d "data=$dondom" "$sv71/dom.php"
-sed -i "s/$newdtdom/$dondom/g" "$home_dt/domains.txt"
+# cleaned_newdomain=$(echo "$newdomain" | tr -d '\r')
+# echo "$cleaned_newdomain,$dbuser,$dbname,$dbpass" >> "$processed_file"
+# dondom=${newdtdom//_setup/_done}
+# curl -X POST -d "data=$dondom" "$sv71/dom.php"
+# sed -i "s/$newdtdom/$dondom/g" "$home_dt/domains.txt"
 
-sleep 5
 rm -rf "$rundir/active/$newdomain.txt"
+> "$rundir/ssl/list/$newdtdom"
 # sed -i "/$newdomain/d" "$rundir/rundom.txt"
 echo ""
