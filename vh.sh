@@ -101,7 +101,7 @@ while true; do
 				if [ "$domains_from_file" == "$files_in_directory" ]; then
 					# echo "The lists match."
 					[ -f "$rundir/ssl/ssl_done.txt" ] && rm -rf "$rundir/ssl/ssl_done.txt"
-                    service httpd restart
+                    			service httpd restart
 					while IFS= read -r newdtdom; do
 						ndtdom=(${newdtdom//_/ })
 						newdomain="${ndtdom[0]}"
