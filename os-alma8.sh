@@ -371,7 +371,7 @@ fi
 
 elog="$dpub/l/${ip}_error.log"
 clog="$dpub/l/${ip}_access.log"
-cat <<EOF | sudo tee -a /etc/httpd/conf.s/sites.conf >/dev/null
+cat <<EOF | sudo tee -a /etc/httpd/conf.s/00-sites.conf >/dev/null
 <VirtualHost *:80>
     DocumentRoot $dpub/w
     ServerName $ip
