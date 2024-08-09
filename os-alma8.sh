@@ -390,7 +390,8 @@ dnf install php-ssh2 -y
 # pecl install ssh2-1.3.1
 # echo "extension=ssh2.so" | sudo tee /etc/php.d/ssh2.ini
 # echo "extension=ssh2.so" >> /etc/php.d/ssh2.ini
-echo "extension=ssh2.so" | tee /etc/php.d/20-ssh2.ini
+# echo "extension=ssh2.so" | tee /etc/php.d/20-ssh2.ini
+ls /etc/php.d/*ssh2* 2>/dev/null || echo "extension=ssh2.so" | tee /etc/php.d/20-ssh2.ini
 
 
 # PERMISSION
